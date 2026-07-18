@@ -1,0 +1,19 @@
+<Window x:Class="NetShaper.Gui.ToastWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        WindowStyle="None"
+        AllowsTransparency="True"
+        Background="Transparent"
+        ShowInTaskbar="False"
+        Topmost="True"
+        ResizeMode="NoResize"
+        SizeToContent="WidthAndHeight"
+        IsHitTestVisible="True">
+  <Border x:Name="Root" Background="#F0161B22" BorderBrush="#FF58A6FF" BorderThickness="1"
+          CornerRadius="10" Padding="16,12" MaxWidth="360" Cursor="Hand" MouseLeftButtonUp="Root_Click">
+    <StackPanel>
+      <TextBlock x:Name="TitleText" FontWeight="SemiBold" FontSize="13" Foreground="#FFF0F3F6"/>
+      <TextBlock x:Name="BodyText" Margin="0,4,0,0" TextWrapping="Wrap" Foreground="#FFB1BAC4" FontSize="12"/>
+    </StackPanel>
+  </Border>
+</Window>

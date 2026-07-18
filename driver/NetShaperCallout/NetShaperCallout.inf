@@ -1,0 +1,50 @@
+;
+; NetShaperCallout.inf — optional catalog install helper
+; Primary dev path uses scripts\install-driver-testsign.ps1 (sc create).
+;
+[Version]
+Signature   = "$WINDOWS NT$"
+Class       = NetService
+ClassGuid   = {4D36E974-E325-11CE-BFC1-08002BE10318}
+Provider    = %ManufacturerName%
+DriverVer   = 01/01/2026,2.0.0.0
+PnpLockdown = 1
+CatalogFile = NetShaperCallout.cat
+
+[DestinationDirs]
+DefaultDestDir = 12
+NetShaper_Device_CoInstaller_CopyFiles = 11
+
+[SourceDisksNames]
+1 = %DiskName%,,,""
+
+[SourceDisksFiles]
+NetShaperCallout.sys = 1,,
+
+[Manufacturer]
+%ManufacturerName% = Standard,NTamd64
+
+[Standard.NTamd64]
+%NetShaper.DeviceDesc% = NetShaper_Device, Root\NetShaperCallout
+
+[NetShaper_Device.NT]
+CopyFiles = NetShaper_Device_CopyFiles
+
+[NetShaper_Device_CopyFiles]
+NetShaperCallout.sys
+
+[NetShaper_Device.NT.Services]
+AddService = NetShaperCallout,, NetShaper_Service_Inst
+
+[NetShaper_Service_Inst]
+DisplayName    = %NetShaper.SVCDESC%
+ServiceType    = 1               ; SERVICE_KERNEL_DRIVER
+StartType      = 3               ; SERVICE_DEMAND_START
+ErrorControl   = 1               ; SERVICE_ERROR_NORMAL
+ServiceBinary  = %12%\NetShaperCallout.sys
+
+[Strings]
+ManufacturerName     = "NetShaper contributors"
+DiskName             = "NetShaper Callout Installation Disk"
+NetShaper.DeviceDesc = "NetShaper WFP Callout"
+NetShaper.SVCDESC    = "NetShaper Callout Driver"

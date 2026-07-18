@@ -1,0 +1,22 @@
+<Window x:Class="NetShaper.Gui.TextViewerDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Viewer" Width="720" Height="520"
+        WindowStartupLocation="CenterOwner"
+        Background="{DynamicResource PanelBrush}">
+  <DockPanel Margin="12">
+    <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,12,0,0">
+      <Button Content="Copy all" Click="Copy_Click"/>
+      <Button Content="Close" Style="{StaticResource AccentButton}" IsCancel="True" IsDefault="True" Click="Close_Click"/>
+    </StackPanel>
+    <TextBox x:Name="Body"
+             IsReadOnly="True"
+             TextWrapping="NoWrap"
+             AcceptsReturn="True"
+             VerticalScrollBarVisibility="Auto"
+             HorizontalScrollBarVisibility="Auto"
+             FontFamily="Consolas"
+             FontSize="12"
+             Background="{DynamicResource Panel2Brush}"/>
+  </DockPanel>
+</Window>

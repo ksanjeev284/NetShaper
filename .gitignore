@@ -1,0 +1,48 @@
+## Build
+bin/
+obj/
+dist/
+out/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+.vs/
+*.DotSettings.user
+
+## Publish / packages
+*.nupkg
+*.snupkg
+project.lock.json
+project.fragment.lock.json
+artifacts/
+
+## Logs & temp
+*.log
+*_smoke*.txt
+analysis_*.txt
+monitor_*.txt
+*.bak
+*.bak-*
+app.manifest.bak*
+
+## Secrets (never commit)
+**/pki-password.txt
+**/codesign-password.txt
+**/*.pfx
+**/*.p12
+**/*.key
+**/NetShaper-msix-temp.*
+
+## Driver build outputs
+**/NetShaperCallout/x64/
+**/NetShaperCallout/*.sys
+**/NetShaperCallout/*.pdb
+**/NetShaperCallout/*.cer
+**/NetShaperCallout/*.cat
+**/NetShaperCallout/*.inf_x64*
+
+## OS junk
+Thumbs.db
+Desktop.ini
+.DS_Store

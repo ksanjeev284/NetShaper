@@ -1,0 +1,68 @@
+<Window x:Class="NetShaper.Gui.EditRuleDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Edit rule" SizeToContent="WidthAndHeight"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        Background="{DynamicResource PanelBrush}">
+  <StackPanel Margin="20" MinWidth="380">
+    <TextBlock x:Name="TitleText" FontWeight="SemiBold" Margin="0,0,0,12" TextWrapping="Wrap"/>
+
+    <TextBlock Text="Direction" Foreground="{DynamicResource MutedBrush}" Margin="0,0,0,4"/>
+    <ComboBox x:Name="DirBox" Margin="0,0,0,12">
+      <ComboBoxItem Content="In"/>
+      <ComboBoxItem Content="Out"/>
+      <ComboBoxItem Content="Both"/>
+    </ComboBox>
+
+    <StackPanel x:Name="LimitPanel" Visibility="Collapsed">
+      <TextBlock Text="Limit (kbps)" Foreground="{DynamicResource MutedBrush}" Margin="0,0,0,4"/>
+      <TextBox x:Name="KbpsBox" Margin="0,0,0,12"/>
+    </StackPanel>
+
+    <StackPanel x:Name="PriorityPanel" Visibility="Collapsed">
+      <TextBlock Text="Priority band" Foreground="{DynamicResource MutedBrush}" Margin="0,0,0,4"/>
+      <ComboBox x:Name="PriorityBox" Margin="0,0,0,12">
+        <ComboBoxItem Content="Lowest"/>
+        <ComboBoxItem Content="Low"/>
+        <ComboBoxItem Content="Normal"/>
+        <ComboBoxItem Content="High"/>
+        <ComboBoxItem Content="Critical"/>
+      </ComboBox>
+    </StackPanel>
+
+    <StackPanel x:Name="QuotaPanel" Visibility="Collapsed">
+      <TextBlock Text="Quota (MB)" Foreground="{DynamicResource MutedBrush}" Margin="0,0,0,4"/>
+      <TextBox x:Name="QuotaMbBox" Margin="0,0,0,12"/>
+    </StackPanel>
+
+    <CheckBox x:Name="EnabledBox" Content="Enabled" Margin="0,0,0,12"/>
+
+    <TextBlock Text="Schedule (local time)" FontWeight="SemiBold" Margin="0,4,0,8"/>
+    <CheckBox x:Name="SchedEnabled" Content="Limit this rule to a time window" Margin="0,0,0,8"/>
+    <Grid Margin="0,0,0,8">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="*"/>
+        <ColumnDefinition Width="*"/>
+      </Grid.ColumnDefinitions>
+      <StackPanel Grid.Column="0" Margin="0,0,8,0">
+        <TextBlock Text="Start (HH:mm)" Foreground="{DynamicResource MutedBrush}" Margin="0,0,0,4"/>
+        <TextBox x:Name="SchedStart" Text="09:00"/>
+      </StackPanel>
+      <StackPanel Grid.Column="1">
+        <TextBlock Text="End (HH:mm)" Foreground="{DynamicResource MutedBrush}" Margin="0,0,0,4"/>
+        <TextBox x:Name="SchedEnd" Text="17:00"/>
+      </StackPanel>
+    </Grid>
+    <TextBlock Text="Days (0=Sun … 6=Sat, comma-separated, empty=all)" Foreground="{DynamicResource MutedBrush}" Margin="0,0,0,4"/>
+    <TextBox x:Name="SchedDays" Margin="0,0,0,12" ToolTip="e.g. 1,2,3,4,5 for weekdays"/>
+
+    <TextBlock Text="Notes" Foreground="{DynamicResource MutedBrush}" Margin="0,0,0,4"/>
+    <TextBox x:Name="NotesBox" Margin="0,0,0,16"/>
+
+    <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+      <Button Content="Cancel" IsCancel="True" Click="Cancel_Click"/>
+      <Button Content="Save" Style="{StaticResource AccentButton}" IsDefault="True" Click="Ok_Click"/>
+    </StackPanel>
+  </StackPanel>
+</Window>
