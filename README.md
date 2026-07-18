@@ -56,7 +56,19 @@ Built with **public Microsoft Windows APIs** (IP Helper, Windows Filtering Platf
 
 ---
 
-## Quick start (from source)
+## Install (easiest)
+
+### From a release zip (recommended for users)
+
+1. Download **NetShaper-*-win-x64.zip** from [Releases](https://github.com/ksanjeev284/NetShaper/releases)
+2. Unzip anywhere
+3. Right-click **`Setup.cmd`** → **Run as administrator**
+4. Choose **[1] Install app** (or **[4]** for PATH + WinDivert + start)
+5. Start **NetShaper** from the Desktop / Start Menu and accept UAC
+
+See `GETTING-STARTED.txt` inside the zip.
+
+### From source (developers)
 
 ```powershell
 git clone https://github.com/ksanjeev284/NetShaper.git
@@ -65,23 +77,27 @@ dotnet build
 dotnet run --project NetShaper.Gui
 ```
 
-Run the GUI **as Administrator** for full firewall / limit enforcement.
+Or build + install system-wide:
+
+```powershell
+# Admin PowerShell
+powershell -ExecutionPolicy Bypass -File scripts\install-app.ps1 -AddToPath
+# options: -WinDivert  -InstallService  -StartApp
+```
 
 ### CLI examples
 
 ```powershell
-dotnet run --project NetShaper.Cli -- limit chrome 500
-dotnet run --project NetShaper.Cli -- apply-all --persist
-dotnet run --project NetShaper.Cli -- sample 2
-dotnet run --project NetShaper.Cli -- export policy-backup.json
+# After install with PATH, or use full path to cli\NetShaper.Cli.exe
+NetShaper.Cli.exe limit chrome 500
+NetShaper.Cli.exe apply-all --persist
+NetShaper.Cli.exe sample 2
 ```
 
-### Release zip
+### Maintainers: test + publish + GitHub release
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File scripts\publish.ps1
-# → dist\NetShaper-*-win-x64.zip
-powershell -ExecutionPolicy Bypass -File scripts\install-app.ps1   # admin install
+powershell -ExecutionPolicy Bypass -File scripts\release.ps1
 ```
 
 ---

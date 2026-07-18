@@ -1,6 +1,7 @@
 <#
 .SYNOPSIS
-  Publish NetShaper (GUI + CLI) self-contained win-x64 Release builds into dist\.
+  Publish NetShaper (GUI + CLI) self-contained win-x64 Release into dist\.
+  Also copies easy Setup.cmd / Install.ps1 into the release folder for end users.
 #>
 param(
   [string]$Configuration = "Release",
@@ -13,7 +14,10 @@ $Root = Resolve-Path (Join-Path $PSScriptRoot "..")
 $out = Join-Path $Root "dist\NetShaper-$Runtime"
 $sc = -not $FrameworkDependent
 
-Write-Host "Publishing NetShaper ($Configuration / $Runtime / self-contained=$sc)"
+$ver = & (Join-Path $PSScriptRoot "Get-Version.ps1")
+if (-not $ver) { $ver = "0.0.0" }
+
+Write-Host "Publishing NetShaper $ver ($Configuration / $Runtime / self-contained=$sc)"
 Write-Host "Output: $out"
 
 if (Test-Path $out) { Remove-Item $out -Recurse -Force }
@@ -37,7 +41,7 @@ Write-Host "`n== CLI =="
 dotnet publish (Join-Path $Root "NetShaper.Cli\NetShaper.Cli.csproj") @common -o (Join-Path $out "cli")
 if ($LASTEXITCODE -ne 0) { throw "CLI publish failed" }
 
-# Assets / docs
+# Docs + icon
 Copy-Item (Join-Path $Root "LICENSE") $out -Force
 Copy-Item (Join-Path $Root "README.md") $out -Force
 Copy-Item (Join-Path $Root "assets\NetShaper.ico") $out -Force -ErrorAction SilentlyContinue
@@ -45,20 +49,23 @@ if (Test-Path (Join-Path $Root "assets\NetShaper-256.png")) {
   Copy-Item (Join-Path $Root "assets\NetShaper-256.png") $out -Force
 }
 
-# Version stamp
-$ver = "0.3.7"
+# Easy install for zip users
+Copy-Item (Join-Path $PSScriptRoot "Install-FromRelease.ps1") (Join-Path $out "Install.ps1") -Force
+Copy-Item (Join-Path $PSScriptRoot "Setup.cmd") $out -Force
+Copy-Item (Join-Path $PSScriptRoot "GETTING-STARTED.txt") $out -Force
+# So Setup can find windivert helper when run from repo-built dist with scripts nearby
+Copy-Item (Join-Path $PSScriptRoot "install-windivert.ps1") $out -Force -ErrorAction SilentlyContinue
+
 $ver | Set-Content (Join-Path $out "VERSION.txt")
 
 # Zip
+New-Item -ItemType Directory -Path (Join-Path $Root "dist") -Force | Out-Null
 $zip = Join-Path $Root "dist\NetShaper-$ver-$Runtime.zip"
 if (Test-Path $zip) { Remove-Item $zip -Force }
 Compress-Archive -Path (Join-Path $out "*") -DestinationPath $zip -Force
 
-Write-Host "`nOK"
+Write-Host "`nOK  NetShaper $ver"
 Write-Host "Folder: $out"
 Write-Host "Zip:    $zip"
-Get-ChildItem $out -File | Select-Object -First 15 Name, Length
-
-
-
-
+Write-Host "Users:  Unzip → right-click Setup.cmd → Run as administrator"
+Get-ChildItem $out -File | Select-Object Name, Length | Format-Table -AutoSize

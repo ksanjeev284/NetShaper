@@ -1,0 +1,31 @@
+NetShaper — Getting started
+===========================
+
+EASIEST (from a release zip)
+----------------------------
+1. Unzip NetShaper-*-win-x64.zip
+2. Right-click Setup.cmd → Run as administrator
+   (or double-click Setup.cmd — it will ask for elevation)
+3. Choose [1] Install app
+4. Start NetShaper from the Desktop or Start Menu
+5. Accept the UAC prompt when the app starts
+
+WHAT TO DO FIRST
+----------------
+• Run as Administrator for full features (limits, firewall, best rates)
+• Live traffic tab: see app speeds and data
+• Rules / Limits: limit an app or block it, then click Apply all
+
+OPTIONAL
+--------
+• Setup option [3] or [4]: install WinDivert for Packet-mode smooth limiting
+• CLI: after install with PATH, open a terminal and run:  NetShaper.Cli.exe sample 2
+
+UNINSTALL
+---------
+• Apps & Features → NetShaper → Uninstall
+• Or Setup.cmd → [5] Uninstall
+
+HELP
+----
+https://github.com/ksanjeev284/NetShaper
