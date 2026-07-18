@@ -216,7 +216,12 @@ Source: https://github.com/ksanjeev284/NetShaper
 "@
   }
 
-  gh release delete "v$ver" --repo ksanjeev284/NetShaper --yes 2>$null
+  # Delete existing tag/release if present (ignore "not found")
+  $prevEap = $ErrorActionPreference
+  $ErrorActionPreference = "Continue"
+  gh release delete "v$ver" --repo ksanjeev284/NetShaper --yes 2>$null | Out-Null
+  $ErrorActionPreference = $prevEap
+
   gh release create "v$ver" $zip `
     --repo ksanjeev284/NetShaper `
     --title "NetShaper $ver - Free Windows Bandwidth Limiter" `
