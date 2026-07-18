@@ -19,16 +19,19 @@ Dev install from published folder (admin):
 powershell -ExecutionPolicy Bypass -File scripts\install-app.ps1 -SkipPublish
 ```
 
-## 2. Inno Setup installer
+## 2. GUI installer (Inno Setup) — recommended for users
 
-Requires [Inno Setup 6](https://jrsoftware.org/isinfo.php).
+Requires [Inno Setup 6](https://jrsoftware.org/isinfo.php) on the **build machine** only.
 
 ```powershell
+winget install --id JRSoftware.InnoSetup -e   # once
 powershell -ExecutionPolicy Bypass -File scripts\build-installer.ps1
-# → dist\NetShaper-Setup-<version>.exe
+# → dist\NetShaper-Setup-<version>.exe   (single wizard EXE with all files inside)
 ```
 
-Script: `scripts\NetShaper.iss` (version passed as `/DMyAppVersion=`).
+Script: `scripts\NetShaper.iss` (version from Directory.Build.props via `/DMyAppVersion=`).
+
+End users only need the Setup.exe — double-click, Next, Finish.
 
 ## 3. MSIX (sideload)
 

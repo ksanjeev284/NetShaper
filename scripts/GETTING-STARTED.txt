@@ -1,8 +1,15 @@
 NetShaper — Getting started
 ===========================
 
-EASIEST (from a release zip)
-----------------------------
+EASIEST — GUI installer
+-----------------------
+1. Download NetShaper-Setup-*.exe from GitHub Releases
+2. Double-click → accept UAC → Next through the wizard
+3. Optionally enable "Add CLI to PATH" and desktop shortcut
+4. Finish and launch NetShaper
+
+PORTABLE ZIP
+------------
 1. Unzip NetShaper-*-win-x64.zip
 2. Right-click Setup.cmd → Run as administrator
    (or double-click Setup.cmd — it will ask for elevation)

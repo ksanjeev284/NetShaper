@@ -8,7 +8,7 @@
   <Identity
     Name="NetShaper.TrafficControl"
     Publisher="CN=NetShaper"
-    Version="0.4.1.0"
+    Version="0.4.2.0"
     ProcessorArchitecture="x64" />
 
   <Properties>

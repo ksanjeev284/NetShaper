@@ -1,0 +1,23 @@
+NetShaper is installed.
+
+Next steps
+----------
+1. Launch NetShaper (checkbox below, or Start Menu)
+2. Wait 1–2 seconds on Live traffic for rates to warm up
+3. Limit or block an app, then click Apply all
+
+Tips
+----
+• Run elevated (UAC) for WFP firewall, QoS limits, and best rates
+• Soft shaper mode is the default (good balance)
+• Packet mode needs WinDivert (optional)
+• Uninstall anytime via Apps & Features → NetShaper
+
+CLI (if you enabled PATH)
+-------------------------
+  NetShaper.Cli.exe sample 2
+  NetShaper.Cli.exe limit chrome 500
+  NetShaper.Cli.exe apply-all --persist
+
+Docs: GETTING-STARTED.txt in the install folder
+GitHub: https://github.com/ksanjeev284/NetShaper

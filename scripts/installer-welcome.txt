@@ -1,0 +1,28 @@
+NetShaper — free open-source Windows bandwidth limiter
+======================================================
+
+What you get
+------------
+• Desktop app (NetShaper) with dark/light themes
+• Live per-app download/upload rates and data
+• Limits, block/allow firewall rules, quotas, DNS filters
+• Command-line tool (NetShaper.Cli.exe)
+• Optional CLI on PATH (choose on the next pages)
+
+Requirements
+------------
+• Windows 10 or 11 (64-bit)
+• Administrator rights for this installer (and for full
+  enforcement of limits / firewall after install)
+
+After install
+-------------
+1. Start NetShaper from the Start Menu or Desktop
+2. Accept UAC when the app starts
+3. Open Live traffic, pick an app, set a limit, click Apply all
+
+Optional Packet mode (smooth limiting) needs WinDivert, which
+you can install later from the app Tools tab or:
+  powershell -File install-windivert.ps1
+
+Source & help: https://github.com/ksanjeev284/NetShaper

@@ -58,7 +58,14 @@ Built with **public Microsoft Windows APIs** (IP Helper, Windows Filtering Platf
 
 ## Install (easiest)
 
-### From a release zip (recommended for users)
+### GUI installer (easiest)
+
+1. Download **NetShaper-Setup-*.exe** from [Releases](https://github.com/ksanjeev284/NetShaper/releases)
+2. Double-click the installer and accept UAC
+3. Follow the wizard (optional: desktop icon, CLI on PATH)
+4. Launch **NetShaper** from the Finish page or Start Menu
+
+### Portable zip (no installer)
 
 1. Download **NetShaper-*-win-x64.zip** from [Releases](https://github.com/ksanjeev284/NetShaper/releases)
 2. Unzip anywhere
@@ -109,9 +116,13 @@ NetShaper.Cli.exe apply-all --persist   # ADMIN
 
 Policy lives in the **active profile** under `%ProgramData%\NetShaper\profiles\` (mirrored to `policy.json` for the service/CLI).
 
-### Maintainers: test + publish + GitHub release
+### Maintainers: GUI installer + zip + GitHub release
 
 ```powershell
+# GUI Setup.exe only (Inno Setup 6 required)
+powershell -ExecutionPolicy Bypass -File scripts\build-installer.ps1
+
+# Full pipeline: tests, zip, Setup.exe, git push, GitHub release
 powershell -ExecutionPolicy Bypass -File scripts\release.ps1
 ```
 

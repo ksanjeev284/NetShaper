@@ -135,7 +135,7 @@ if (-not $SkipTests) {
   Write-Host "Skipping tests (-SkipTests)"
 }
 
-# 4) Publish
+# 4) Publish zip + GUI installer
 Step "Publish self-contained zip"
 & (Join-Path $PSScriptRoot "publish.ps1")
 $zip = Join-Path $Root "dist\NetShaper-$ver-win-x64.zip"
@@ -157,6 +157,16 @@ try {
   }
 } finally { $za.Dispose() }
 Write-Host "Zip OK: $zip  ($([math]::Round((Get-Item $zip).Length/1MB,1)) MB)  easy-install files present"
+
+Step "GUI installer (Inno Setup)"
+$setup = Join-Path $Root "dist\NetShaper-Setup-$ver.exe"
+& (Join-Path $PSScriptRoot "build-installer.ps1") -SkipPublish
+if (-not (Test-Path $setup)) {
+  Write-Host "WARNING: GUI Setup.exe not built (Inno missing?). Zip-only release." -ForegroundColor Yellow
+  $setup = $null
+} else {
+  Write-Host "Setup OK: $setup  ($([math]::Round((Get-Item $setup).Length/1MB,1)) MB)"
+}
 
 # 4b) Post-publish CLI smoke on published binary
 Step "Published CLI smoke"
@@ -191,17 +201,20 @@ if (-not $SkipPush) {
 
 **Free open-source Windows bandwidth limiter and traffic control**
 
-### Easy install
+### Easy install (recommended)
+1. Download **NetShaper-Setup-$ver.exe**
+2. Double-click and accept UAC
+3. Follow the wizard (optional desktop icon + CLI on PATH)
+4. Launch NetShaper
+
+### Portable zip
 1. Download **NetShaper-$ver-win-x64.zip**
-2. Unzip
-3. Right-click **Setup.cmd** -> Run as administrator
-4. Choose **[1] Install app**
-5. Start NetShaper from the Desktop or Start Menu
+2. Unzip -> right-click **Setup.cmd** -> Run as administrator -> **[1] Install app**
 
 ### What's included
-- NetShaper.exe (GUI) + CLI
-- Setup.cmd / Install.ps1 one-click installer
-- GETTING-STARTED.txt
+- Full self-contained app (GUI + CLI)
+- Windows GUI installer wizard
+- Portable zip with Setup.cmd / Install.ps1
 
 ### Features
 - Per-app download/upload limits and live traffic
@@ -222,7 +235,10 @@ Source: https://github.com/ksanjeev284/NetShaper
   gh release delete "v$ver" --repo ksanjeev284/NetShaper --yes 2>$null | Out-Null
   $ErrorActionPreference = $prevEap
 
-  gh release create "v$ver" $zip `
+  $assets = @($zip)
+  if ($setup -and (Test-Path $setup)) { $assets += $setup }
+
+  gh release create "v$ver" @assets `
     --repo ksanjeev284/NetShaper `
     --title "NetShaper $ver - Free Windows Bandwidth Limiter" `
     --notes $notes `
