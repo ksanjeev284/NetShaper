@@ -1,16 +1,18 @@
 #Requires -Version 5.1
 <#
 .SYNOPSIS
-  Full release pipeline: scrub -> tests -> publish -> git push -> GitHub release.
+  Full release pipeline: scrub -> tests -> publish -> Setup.exe -> git push -> GitHub release.
 
 .EXAMPLE
   powershell -ExecutionPolicy Bypass -File scripts\release.ps1
   powershell -ExecutionPolicy Bypass -File scripts\release.ps1 -SkipTests
   powershell -ExecutionPolicy Bypass -File scripts\release.ps1 -SkipPush
+  powershell -ExecutionPolicy Bypass -File scripts\preflight.ps1   # validate only
 #>
 param(
   [switch]$SkipTests,
   [switch]$SkipPush,
+  [switch]$RequireInstaller,
   [string]$Notes = ""
 )
 
@@ -24,6 +26,31 @@ function Step($m) { Write-Host ""; Write-Host "==== $m ====" -ForegroundColor Cy
 $ver = & (Join-Path $PSScriptRoot "Get-Version.ps1")
 if (-not $ver -or $ver -eq "0.0.0") { throw "Could not read version from Directory.Build.props" }
 Write-Host "NetShaper release pipeline  v$ver"
+
+# Tooling gate
+Step "Tools"
+$dotnetOk = $false
+try { $null = dotnet --version; $dotnetOk = $true } catch {}
+if (-not $dotnetOk) { throw "dotnet SDK required" }
+Write-Host "dotnet OK"
+if (-not $SkipPush) {
+  try { $null = git --version } catch { throw "git required for push" }
+  try {
+    $auth = gh auth status 2>&1 | Out-String
+    if ($auth -notmatch "Logged in") { throw "gh not authenticated - run: gh auth login" }
+  } catch {
+    throw "GitHub CLI (gh) required for release. Install and: gh auth login"
+  }
+  Write-Host "git + gh OK"
+}
+$iscc = @(
+  "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe",
+  "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe",
+  "$env:ProgramFiles\Inno Setup 6\ISCC.exe"
+) | Where-Object { Test-Path $_ } | Select-Object -First 1
+if ($iscc) { Write-Host "Inno Setup OK: $iscc" }
+elseif ($RequireInstaller) { throw "Inno Setup required (-RequireInstaller). winget install JRSoftware.InnoSetup" }
+else { Write-Host "Inno Setup not found - zip-only release unless you install it" -ForegroundColor Yellow }
 
 # 1) Scrub sensitive terms (patterns split so this file is not self-flagged)
 Step "Scrub check (no third-party RE branding)"
@@ -160,12 +187,19 @@ Write-Host "Zip OK: $zip  ($([math]::Round((Get-Item $zip).Length/1MB,1)) MB)  e
 
 Step "GUI installer (Inno Setup)"
 $setup = Join-Path $Root "dist\NetShaper-Setup-$ver.exe"
-& (Join-Path $PSScriptRoot "build-installer.ps1") -SkipPublish
-if (-not (Test-Path $setup)) {
-  Write-Host "WARNING: GUI Setup.exe not built (Inno missing?). Zip-only release." -ForegroundColor Yellow
-  $setup = $null
+if ($iscc) {
+  & (Join-Path $PSScriptRoot "build-installer.ps1") -SkipPublish
+  if (-not (Test-Path $setup)) {
+    if ($RequireInstaller) { throw "Setup.exe missing after build-installer" }
+    Write-Host "WARNING: GUI Setup.exe not produced." -ForegroundColor Yellow
+    $setup = $null
+  } else {
+    Write-Host "Setup OK: $setup  ($([math]::Round((Get-Item $setup).Length/1MB,1)) MB)"
+  }
 } else {
-  Write-Host "Setup OK: $setup  ($([math]::Round((Get-Item $setup).Length/1MB,1)) MB)"
+  if ($RequireInstaller) { throw "Inno Setup missing and -RequireInstaller set" }
+  Write-Host "WARNING: Skipping Setup.exe (Inno not installed)." -ForegroundColor Yellow
+  $setup = $null
 }
 
 # 4b) Post-publish CLI smoke on published binary
@@ -245,9 +279,21 @@ Source: https://github.com/ksanjeev284/NetShaper
     --latest
   if ($LASTEXITCODE -ne 0) { throw "gh release create failed" }
 
+  # Verify assets landed
+  $view = gh release view "v$ver" --repo ksanjeev284/NetShaper --json assets,url | ConvertFrom-Json
+  $assetNames = @($view.assets | ForEach-Object { $_.name })
+  Write-Host "Release assets: $($assetNames -join ', ')"
+  if ($assetNames -notcontains "NetShaper-$ver-win-x64.zip") {
+    throw "GitHub release missing zip asset"
+  }
+  if ($setup -and ($assetNames -notcontains "NetShaper-Setup-$ver.exe")) {
+    throw "GitHub release missing Setup.exe asset"
+  }
   gh release view "v$ver" --repo ksanjeev284/NetShaper
 }
 
 Write-Host ""
 Write-Host "Release complete: v$ver" -ForegroundColor Green
 Write-Host "https://github.com/ksanjeev284/NetShaper/releases/tag/v$ver"
+if ($setup) { Write-Host "Setup:  $setup" }
+Write-Host "Zip:    $zip"

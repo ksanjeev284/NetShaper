@@ -116,14 +116,18 @@ NetShaper.Cli.exe apply-all --persist   # ADMIN
 
 Policy lives in the **active profile** under `%ProgramData%\NetShaper\profiles\` (mirrored to `policy.json` for the service/CLI).
 
-### Maintainers: GUI installer + zip + GitHub release
+### Maintainers: release workflow
+
+See **[RELEASING.md](RELEASING.md)** for the full checklist.
 
 ```powershell
-# GUI Setup.exe only (Inno Setup 6 required)
-powershell -ExecutionPolicy Bypass -File scripts\build-installer.ps1
+# Bump version, validate everything, then ship
+powershell -ExecutionPolicy Bypass -File scripts\bump-version.ps1 -Patch
+powershell -ExecutionPolicy Bypass -File scripts\preflight.ps1          # no GitHub upload
+powershell -ExecutionPolicy Bypass -File scripts\release.ps1            # tests + zip + Setup.exe + GitHub
 
-# Full pipeline: tests, zip, Setup.exe, git push, GitHub release
-powershell -ExecutionPolicy Bypass -File scripts\release.ps1
+# Dry-run (no git push / no release)
+powershell -ExecutionPolicy Bypass -File scripts\release.ps1 -SkipPush
 ```
 
 ---

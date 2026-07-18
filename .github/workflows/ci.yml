@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-test:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Restore & build
+        run: dotnet build NetShaper.sln -c Release --nologo
+
+      - name: CLI smoke
+        shell: pwsh
+        run: |
+          $cli = "NetShaper.Cli/bin/Release/net8.0/NetShaper.Cli.exe"
+          if (-not (Test-Path $cli)) { throw "CLI missing" }
+          & $cli list
+          if ($LASTEXITCODE -ne 0) { throw "list failed" }
+          & $cli sample 1
+          if ($LASTEXITCODE -ne 0 -and $LASTEXITCODE -ne 4) { throw "sample failed" }
+          & $cli shaper
+          if ($LASTEXITCODE -ne 0) { throw "shaper failed" }
+          & $cli profile list
+          if ($LASTEXITCODE -ne 0) { throw "profile failed" }
+          & $cli stats info
+          if ($LASTEXITCODE -ne 0) { throw "stats failed" }
+
+      - name: Feature smoke
+        shell: pwsh
+        run: |
+          powershell -NoProfile -ExecutionPolicy Bypass -File scripts/feature-smoke-test.ps1 -SkipAdminOps
+          if ($LASTEXITCODE -ne 0) { throw "feature smoke failed" }
+
+      - name: Publish zip
+        shell: pwsh
+        run: |
+          powershell -NoProfile -ExecutionPolicy Bypass -File scripts/publish.ps1
+          $ver = & scripts/Get-Version.ps1
+          $zip = "dist/NetShaper-$ver-win-x64.zip"
+          if (-not (Test-Path $zip)) { throw "zip missing" }
+          if (-not (Test-Path "dist/NetShaper-win-x64/NetShaper.exe")) { throw "payload missing" }
+          if (-not (Test-Path "dist/NetShaper-win-x64/Setup.cmd")) { throw "Setup.cmd missing" }
+
+      - name: Upload feature report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: feature-test-report
+          path: |
+            dist/FEATURE-TEST-REPORT.md
+            dist/feature-test-results.csv
+          if-no-files-found: ignore
