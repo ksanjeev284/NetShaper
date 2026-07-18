@@ -3,6 +3,11 @@ using System.Text.Json.Serialization;
 
 namespace NetShaper.Core.Policy;
 
+/// <summary>
+/// Unified policy access for CLI, Service, API, and tools.
+/// Always reads/writes the <see cref="ProfileStore"/> active profile and mirrors to policy.json
+/// so GUI profiles and automation stay in sync.
+/// </summary>
 public sealed class PolicyStore
 {
     private static readonly JsonSerializerOptions JsonOpts = new()
@@ -12,19 +17,39 @@ public sealed class PolicyStore
         Converters = { new JsonStringEnumConverter() },
     };
 
+    private readonly ProfileStore _profiles = new();
+
+    /// <summary>Legacy path still mirrored for older scripts; active profile is authoritative.</summary>
     public string FilePath { get; }
+
+    public string ActiveProfileName => _profiles.GetActiveName();
 
     public PolicyStore(string? filePath = null)
     {
-        var root = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
-            "NetShaper");
-        Directory.CreateDirectory(root);
-        FilePath = filePath ?? Path.Combine(root, "policy.json");
+        // Optional explicit path bypasses profiles (tests / import tools)
+        if (!string.IsNullOrWhiteSpace(filePath))
+        {
+            FilePath = filePath;
+            _useProfiles = false;
+            var dir = Path.GetDirectoryName(filePath);
+            if (!string.IsNullOrEmpty(dir))
+                Directory.CreateDirectory(dir);
+        }
+        else
+        {
+            _useProfiles = true;
+            FilePath = Path.Combine(_profiles.RootDir, "policy.json");
+            Directory.CreateDirectory(_profiles.RootDir);
+        }
     }
+
+    private readonly bool _useProfiles = true;
 
     public PolicyDocument LoadOrCreate()
     {
+        if (_useProfiles)
+            return _profiles.LoadActive();
+
         if (!File.Exists(FilePath))
         {
             var doc = PolicyDocument.CreateDefaults();
@@ -38,6 +63,12 @@ public sealed class PolicyStore
 
     public void Save(PolicyDocument doc)
     {
+        if (_useProfiles)
+        {
+            _profiles.SaveProfile(_profiles.GetActiveName(), doc);
+            return;
+        }
+
         doc.Filters.ForEach(f => f.UpdatedUtc = DateTimeOffset.UtcNow);
         var json = JsonSerializer.Serialize(doc, JsonOpts);
         File.WriteAllText(FilePath, json);
@@ -61,5 +92,7 @@ public sealed class PolicyStore
     }
 
     public string ReadRaw() =>
-        File.Exists(FilePath) ? File.ReadAllText(FilePath) : PolicyEditor.ToJson(PolicyDocument.CreateDefaults());
+        File.Exists(FilePath)
+            ? File.ReadAllText(FilePath)
+            : PolicyEditor.ToJson(PolicyDocument.CreateDefaults());
 }

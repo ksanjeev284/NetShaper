@@ -22,32 +22,48 @@ public sealed class GuiSettings
     public string? LastProfile { get; set; }
     public int StatsRetentionDays { get; set; } = 30;
     public bool StatsRecordProcesses { get; set; } = true;
+    /// <summary>One-shot first-run tips shown once per install.</summary>
+    public bool WelcomeSeen { get; set; }
 
     private static readonly JsonSerializerOptions JsonOpts = new() { WriteIndented = true };
-    private static string FilePath => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
-        "NetShaper", "gui-settings.json");
+
+    private static IEnumerable<string> CandidatePaths()
+    {
+        yield return Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
+            "NetShaper", "gui-settings.json");
+        yield return Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "NetShaper", "gui-settings.json");
+    }
 
     public static GuiSettings Load()
     {
-        try
+        foreach (var path in CandidatePaths())
         {
-            if (File.Exists(FilePath))
-                return JsonSerializer.Deserialize<GuiSettings>(File.ReadAllText(FilePath), JsonOpts)
-                       ?? new GuiSettings();
+            try
+            {
+                if (File.Exists(path))
+                    return JsonSerializer.Deserialize<GuiSettings>(File.ReadAllText(path), JsonOpts)
+                           ?? new GuiSettings();
+            }
+            catch { /* try next */ }
         }
-        catch { /* ignore */ }
         return new GuiSettings();
     }
 
     public void Save()
     {
-        try
+        foreach (var path in CandidatePaths())
         {
-            var dir = Path.GetDirectoryName(FilePath)!;
-            Directory.CreateDirectory(dir);
-            File.WriteAllText(FilePath, JsonSerializer.Serialize(this, JsonOpts));
+            try
+            {
+                var dir = Path.GetDirectoryName(path)!;
+                Directory.CreateDirectory(dir);
+                File.WriteAllText(path, JsonSerializer.Serialize(this, JsonOpts));
+                return;
+            }
+            catch { /* try next path */ }
         }
-        catch { /* ignore */ }
     }
 }

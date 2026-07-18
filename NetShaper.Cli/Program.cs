@@ -27,9 +27,12 @@ static class Program
         {
             try
             {
-                var need = cmd is "list" or "limits" or "quotas" or "stats" or "dns" or "wfp-status" or "policy" or "shaper" or "api" or "driver" or "certs" or "sample" or "live"
+                var need = cmd is "list" or "limits" or "quotas" or "stats" or "dns" or "wfp-status" or "policy" or "shaper" or "api" or "driver" or "certs" or "sample" or "live" or "profile"
                     ? AccessRight.Monitor
                     : AccessRight.Control;
+                // profile list/show = monitor; use/create/delete need control
+                if (cmd == "profile" && args.Length > 1 && args[1] is "use" or "set" or "switch" or "create" or "new" or "delete" or "rm")
+                    need = AccessRight.Control;
                 // read-only api get is monitor; mutating needs control
                 if (cmd == "api" && args.Length > 1 && args[1] is "get" or "show" or "status" or "rget")
                     need = AccessRight.Monitor;
@@ -56,6 +59,11 @@ static class Program
         {
             "policy" => CmdPolicy(store, args.Skip(1).ToArray()),
             "limit" => CmdLimit(store, args.Skip(1).ToArray()),
+            "priority" => CmdPriority(store, args.Skip(1).ToArray()),
+            "quota" => CmdQuota(store, args.Skip(1).ToArray()),
+            "lockdown" => CmdLockdown(store, args.Skip(1).ToArray()),
+            "profile" => CmdProfile(args.Skip(1).ToArray()),
+            "kill" => CmdKill(args.Skip(1).ToArray()),
             "block" => CmdBlock(store, args.Skip(1).ToArray()),
             "allow" => CmdAllow(store, args.Skip(1).ToArray()),
             "block-domain" => CmdBlockDomain(store, args.Skip(1).ToArray()),
@@ -103,6 +111,11 @@ static class Program
               stats [info|top|export-system <file>|purge]
               policy show|init
               limit <pathContains> <kbps> [--dir both]      store limit; shaper enforces
+              priority <pathContains> <lowest|low|normal|high|critical>
+              quota <pathContains> <MB> | quota reset [pathContains]
+              lockdown on|off
+              profile list|show|use <name>|create <name>|delete <name>
+              kill <processName|pid>                        kill IPv4 TCP conns (admin)
               block|allow <path|fragment> [--dir both]
               block-domain|allow-domain <domain>
               dns [refresh|list]
@@ -118,14 +131,15 @@ static class Program
               wfp-status [--persist]
               export <file.json> | import <file.json>
 
-            Policy: %ProgramData%\NetShaper\policy.json
+            Active profile: %ProgramData%\NetShaper\profiles\  (mirrored to policy.json)
+            After block/allow/limit changes run:  apply-all --persist  (as Administrator)
             """);
     }
 
     static int CmdList(PolicyStore store)
     {
         var doc = store.LoadOrCreate();
-        Console.WriteLine($"Policy v{doc.Version}  limiter={doc.LimiterEnabled} fw={doc.FirewallEnabled}");
+        Console.WriteLine($"Profile: {store.ActiveProfileName}  Policy v{doc.Version}  limiter={doc.LimiterEnabled} fw={doc.FirewallEnabled} lockdown={doc.LockdownEnabled}");
         Console.WriteLine($"Filters ({doc.Filters.Count}):");
         foreach (var f in doc.Filters)
             Console.WriteLine($"  [{f.Id:N}] {f.Name} matchers={f.Matchers.Count} zone={f.IsZone}");
@@ -135,6 +149,181 @@ static class Program
                 $"  [{r.Id:N}] {r.Kind,-6} filter={r.FilterId:N} dir={r.Direction} " +
                 $"limitBps={r.LimitBytesPerSec} enabled={r.Enabled}");
         return 0;
+    }
+
+    static int CmdPriority(PolicyStore store, string[] args)
+    {
+        if (args.Length < 2)
+        {
+            Console.WriteLine("priority <pathContains> <lowest|low|normal|high|critical>");
+            return 1;
+        }
+        var band = args[1].ToLowerInvariant() switch
+        {
+            "lowest" or "0" => PriorityBand.Lowest,
+            "low" or "1" => PriorityBand.Low,
+            "normal" or "2" or "default" => PriorityBand.Normal,
+            "high" or "3" => PriorityBand.High,
+            "critical" or "highest" or "4" => PriorityBand.Critical,
+            _ => (PriorityBand?)null,
+        };
+        if (band is null)
+        {
+            Console.WriteLine("Unknown band. Use: lowest|low|normal|high|critical");
+            return 1;
+        }
+        var doc = store.LoadOrCreate();
+        PolicyEditor.AddPriority(doc, args[0], band.Value, ParseDir(args));
+        store.Save(doc);
+        Console.WriteLine($"Stored priority {band} on '{args[0]}'.");
+        Console.WriteLine("Enforce: apply-qos  (Administrator)");
+        return 0;
+    }
+
+    static int CmdQuota(PolicyStore store, string[] args)
+    {
+        if (args.Length < 1)
+        {
+            Console.WriteLine("quota <pathContains> <MB>");
+            Console.WriteLine("quota reset [pathContains]   clear used counters");
+            return 1;
+        }
+        if (args[0].Equals("reset", StringComparison.OrdinalIgnoreCase))
+        {
+            var tracker = new QuotaTracker();
+            var doc = store.LoadOrCreate();
+            var q = args.Length > 1 ? args[1] : null;
+            if (q is null)
+            {
+                tracker.ResetAll();
+                Console.WriteLine("Reset all quota usage counters.");
+                return 0;
+            }
+            var n = 0;
+            foreach (var r in doc.Rules.Where(r => r.Kind == RuleKind.Quota))
+            {
+                var f = doc.Filters.FirstOrDefault(x => x.Id == r.FilterId);
+                var hit = f is not null && (
+                    f.Name.Contains(q, StringComparison.OrdinalIgnoreCase) ||
+                    f.Matchers.Any(m => (m.StringValue ?? "").Contains(q, StringComparison.OrdinalIgnoreCase)));
+                if (!hit) continue;
+                tracker.Reset(r.Id);
+                n++;
+            }
+            Console.WriteLine($"Reset quota usage on {n} rule(s) matching '{q}'.");
+            return 0;
+        }
+        if (args.Length < 2 || !long.TryParse(args[1], out var mb) || mb <= 0)
+        {
+            Console.WriteLine("quota <pathContains> <MB>");
+            return 1;
+        }
+        var doc2 = store.LoadOrCreate();
+        doc2.QuotaEnabled = true;
+        PolicyEditor.AddQuota(doc2, args[0], mb * 1024L * 1024L, ParseDir(args));
+        store.Save(doc2);
+        Console.WriteLine($"Stored quota {mb} MB on '{args[0]}'.");
+        Console.WriteLine("GUI/service tracks usage; enable auto-block in Settings if desired.");
+        return 0;
+    }
+
+    static int CmdLockdown(PolicyStore store, string[] args)
+    {
+        if (args.Length < 1 || args[0] is not ("on" or "off" or "1" or "0" or "true" or "false"))
+        {
+            Console.WriteLine("lockdown on|off");
+            return 1;
+        }
+        var on = args[0] is "on" or "1" or "true";
+        var doc = store.LoadOrCreate();
+        doc.LockdownEnabled = on;
+        if (on) doc.FirewallEnabled = true;
+        store.Save(doc);
+        Console.WriteLine(on
+            ? "Lockdown ON (catch-all block; only Allow rules pass). Run: apply-wfp --persist"
+            : "Lockdown OFF. Run: apply-wfp --persist to sync");
+        return 0;
+    }
+
+    static int CmdProfile(string[] args)
+    {
+        var ps = new ProfileStore();
+        if (args.Length == 0 || args[0] is "list" or "ls")
+        {
+            var active = ps.GetActiveName();
+            Console.WriteLine($"Active: {active}");
+            foreach (var p in ps.ListProfiles())
+                Console.WriteLine((p.Equals(active, StringComparison.OrdinalIgnoreCase) ? "* " : "  ") + p);
+            return 0;
+        }
+        switch (args[0].ToLowerInvariant())
+        {
+            case "show":
+            {
+                var name = args.Length > 1 ? args[1] : ps.GetActiveName();
+                var doc = ps.LoadProfile(name);
+                Console.WriteLine($"Profile: {name}");
+                Console.WriteLine($"  Path: {ps.ProfilePath(name)}");
+                Console.WriteLine($"  Filters={doc.Filters.Count} Rules={doc.Rules.Count} Shaper={doc.ShaperMode} Lockdown={doc.LockdownEnabled}");
+                return 0;
+            }
+            case "use" or "set" or "switch":
+            {
+                if (args.Length < 2) { Console.WriteLine("profile use <name>"); return 1; }
+                ps.SetActive(args[1]);
+                Console.WriteLine($"Active profile → {ps.GetActiveName()}");
+                Console.WriteLine("Re-run apply-all --persist to enforce the switched profile.");
+                return 0;
+            }
+            case "create" or "new":
+            {
+                if (args.Length < 2) { Console.WriteLine("profile create <name> [--empty]"); return 1; }
+                var clone = !args.Any(a => a is "--empty" or "-e");
+                ps.CreateProfile(args[1], cloneActive: clone);
+                Console.WriteLine($"Created profile '{args[1]}' (cloneActive={clone}). Use: profile use {args[1]}");
+                return 0;
+            }
+            case "delete" or "rm":
+            {
+                if (args.Length < 2) { Console.WriteLine("profile delete <name>"); return 1; }
+                ps.DeleteProfile(args[1]);
+                Console.WriteLine($"Deleted profile '{args[1]}'. Active={ps.GetActiveName()}");
+                return 0;
+            }
+            default:
+                Console.WriteLine("profile list|show|use <name>|create <name>|delete <name>");
+                return 1;
+        }
+    }
+
+    static int CmdKill(string[] args)
+    {
+        if (args.Length < 1)
+        {
+            Console.WriteLine("kill <processName|pid>");
+            return 1;
+        }
+        using var sampler = new WindowsTrafficSampler { PreferEStats = false };
+        var snap = sampler.Sample(includeConnections: true);
+        var q = args[0];
+        Func<ConnectionInfo, bool> pred;
+        if (int.TryParse(q, out var pid))
+            pred = c => c.ProcessId == pid;
+        else
+            pred = c => c.ProcessName.Contains(q, StringComparison.OrdinalIgnoreCase) ||
+                        (c.DisplayName ?? "").Contains(q, StringComparison.OrdinalIgnoreCase);
+
+        var targets = snap.Connections.Where(pred).ToList();
+        if (targets.Count == 0)
+        {
+            Console.WriteLine("No matching connections.");
+            return 0;
+        }
+        var n = ConnectionKiller.KillMatching(targets, _ => true);
+        Console.WriteLine($"Killed {n}/{targets.Count} connection(s) matching '{q}'.");
+        if (n == 0)
+            Console.WriteLine("Tip: run as Administrator for SetTcpEntry.");
+        return n > 0 ? 0 : 3;
     }
 
     static int CmdSample(string[] args)

@@ -68,6 +68,15 @@ Built with **public Microsoft Windows APIs** (IP Helper, Windows Filtering Platf
 
 See `GETTING-STARTED.txt` inside the zip.
 
+### Your first limit
+
+1. **Live traffic** — wait 1–2 seconds for rates to appear  
+2. Right-click an app → **Limit…** (or use Rules / Limits)  
+3. Click **Apply all** (Administrator)  
+4. Default shaper mode is **Soft** (QoS + soft pulse). Modes: Soft · QoS · Aggressive · Packet (WinDivert)
+
+Without admin you can still store rules and watch traffic; WFP/QoS enforcement needs elevation.
+
 ### From source (developers)
 
 ```powershell
@@ -89,10 +98,16 @@ powershell -ExecutionPolicy Bypass -File scripts\install-app.ps1 -AddToPath
 
 ```powershell
 # After install with PATH, or use full path to cli\NetShaper.Cli.exe
-NetShaper.Cli.exe limit chrome 500
-NetShaper.Cli.exe apply-all --persist
 NetShaper.Cli.exe sample 2
+NetShaper.Cli.exe limit chrome 500
+NetShaper.Cli.exe priority chrome high
+NetShaper.Cli.exe quota steam 2048
+NetShaper.Cli.exe lockdown on
+NetShaper.Cli.exe profile list
+NetShaper.Cli.exe apply-all --persist   # ADMIN
 ```
+
+Policy lives in the **active profile** under `%ProgramData%\NetShaper\profiles\` (mirrored to `policy.json` for the service/CLI).
 
 ### Maintainers: test + publish + GitHub release
 

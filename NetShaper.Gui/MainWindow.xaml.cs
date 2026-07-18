@@ -171,6 +171,37 @@ public partial class MainWindow : Window
         }
 
         LogInfo("Ready — NetShaper free open-source build.");
+        // First-run tips after the window is shown (don't block InitializeComponent)
+        Loaded += (_, _) =>
+        {
+            if (_gui.WelcomeSeen) return;
+            try
+            {
+                ShowWelcomeTips();
+                _gui.WelcomeSeen = true;
+                _gui.Save();
+            }
+            catch { /* non-fatal */ }
+        };
+    }
+
+    private void ShowWelcomeTips()
+    {
+        var elevated = IsElevated();
+        MessageBox.Show(
+            "Welcome to NetShaper — free open-source bandwidth limiter\n\n" +
+            "Quick start:\n" +
+            "1. Live traffic — watch per-app rates (warm-up 1–2 sec)\n" +
+            "2. Limits / Rules — limit or block an app, then Apply all\n" +
+            "3. Shaper modes: Soft (default), QoS, Aggressive, Packet (WinDivert)\n\n" +
+            (elevated
+                ? "You are elevated — Apply all / WFP / QoS can enforce system-wide.\n"
+                : "Not elevated — you can store rules; Apply all needs Administrator.\n") +
+            "\nOptional: Setup.cmd option [3] installs WinDivert for smooth Packet mode.\n" +
+            "Help: https://github.com/ksanjeev284/NetShaper",
+            "NetShaper — getting started",
+            MessageBoxButton.OK,
+            MessageBoxImage.Information);
     }
 
     private void LogInfo(string m, string? d = null) { _log.Info(m, d); SetStatus(m); }
@@ -179,15 +210,14 @@ public partial class MainWindow : Window
 
     private void OnTick()
     {
-        // Sync engine prefs from UI (cheap)
+        // Sync engine prefs from UI (cheap). Stats checkbox only controls DB recording
+        // in OnEngineSnapshot — never gate quota / Ask / bandwidth shaper here.
         try
         {
             _sampleEngine.PreferEStats = ChkEStats.IsChecked != false;
             _sampleEngine.IntervalSeconds = Math.Clamp(_gui.RefreshSeconds, 1.0, 5);
         }
         catch { /* */ }
-
-        if (ChkStats.IsChecked == false) return;
 
         // Quota: use last engine snapshot — never re-sample on UI thread
         if (ChkQuota.IsChecked == true && _lastSnap is { } snap)
@@ -522,8 +552,9 @@ public partial class MainWindow : Window
         try
         {
             _askMonitor.PruneDeadProcesses();
-            // Reuse last sample connections via a fresh sample for asks
-            var snap = _sampler.Sample(includeConnections: true);
+            // Never Sample() on UI thread — reuse engine snapshot (same as quota/shaper)
+            var snap = _lastSnap ?? _sampleEngine.TryGetLatest();
+            if (snap is null) return;
             var news = _askMonitor.FindNewAsks(_doc, snap);
             foreach (var r in news)
             {
@@ -2573,9 +2604,30 @@ public partial class MainWindow : Window
 
     private void RequireAdminOrWarn(string action)
     {
-        if (!IsElevated())
-            MessageBox.Show($"{action} requires Administrator.", "NetShaper",
-                MessageBoxButton.OK, MessageBoxImage.Warning);
+        if (IsElevated()) return;
+        var detail = action.ToLowerInvariant() switch
+        {
+            var a when a.Contains("wfp") =>
+                "Windows Filtering Platform rules (block/allow/lockdown) need admin to install into the system filter engine.",
+            var a when a.Contains("qos") =>
+                "Policy-based QoS / NetQos throttling needs admin to create system QoS policies.",
+            var a when a.Contains("apply all") =>
+                "Apply all installs WFP firewall rules and QoS limits into Windows. That requires Administrator.",
+            var a when a.Contains("packet") || a.Contains("divert") =>
+                "Packet mode (WinDivert) needs admin to open the capture/inject handle.",
+            _ => "This action modifies system network policy and requires Administrator."
+        };
+        MessageBox.Show(
+            $"{action} requires Administrator.\n\n{detail}\n\n" +
+            "Still works without admin:\n" +
+            "• Store rules / limits / quotas in policy\n" +
+            "• Live traffic (NIC-share rates; EStats is more precise when elevated)\n" +
+            "• Local API, stats, CLI list/sample\n\n" +
+            "Tip: close NetShaper and restart via UAC, or use Setup.cmd / Run as administrator.",
+            "NetShaper — elevation needed",
+            MessageBoxButton.OK,
+            MessageBoxImage.Warning);
+        LogWarn($"{action}: not elevated");
     }
 
     private void ApplyAll_Click(object sender, RoutedEventArgs e)

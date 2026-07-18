@@ -10,21 +10,33 @@ EASIEST (from a release zip)
 4. Start NetShaper from the Desktop or Start Menu
 5. Accept the UAC prompt when the app starts
 
-WHAT TO DO FIRST
-----------------
-• Run as Administrator for full features (limits, firewall, best rates)
-• Live traffic tab: see app speeds and data
-• Rules / Limits: limit an app or block it, then click Apply all
+YOUR FIRST LIMIT (in the app)
+-----------------------------
+1. Open Live traffic — wait 1–2 seconds for rates to warm up
+2. Right-click an app → Limit… (or Rules / Limits tab)
+3. Enter kbps (e.g. 1000 = ~1 Mbps)
+4. Click Apply all (needs Administrator)
+5. Shaper mode Soft is the default (QoS + soft pulse)
+
+Without admin you can still store rules and watch traffic; system
+enforcement (WFP block/allow, QoS) needs elevation.
 
 OPTIONAL
 --------
 • Setup option [3] or [4]: install WinDivert for Packet-mode smooth limiting
-• CLI: after install with PATH, open a terminal and run:  NetShaper.Cli.exe sample 2
+• CLI on PATH (option [2]):  NetShaper.Cli.exe sample 2
+• CLI examples:
+    NetShaper.Cli.exe limit chrome 500
+    NetShaper.Cli.exe priority chrome high
+    NetShaper.Cli.exe lockdown on
+    NetShaper.Cli.exe apply-all --persist
+    NetShaper.Cli.exe profile list
 
 UNINSTALL
 ---------
 • Apps & Features → NetShaper → Uninstall
 • Or Setup.cmd → [5] Uninstall
+• Policy/stats under %ProgramData%\NetShaper are kept unless you pass -RemoveData
 
 HELP
 ----

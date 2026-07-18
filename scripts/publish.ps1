@@ -53,7 +53,7 @@ if (Test-Path (Join-Path $Root "assets\NetShaper-256.png")) {
 Copy-Item (Join-Path $PSScriptRoot "Install-FromRelease.ps1") (Join-Path $out "Install.ps1") -Force
 Copy-Item (Join-Path $PSScriptRoot "Setup.cmd") $out -Force
 Copy-Item (Join-Path $PSScriptRoot "GETTING-STARTED.txt") $out -Force
-# So Setup can find windivert helper when run from repo-built dist with scripts nearby
+Copy-Item (Join-Path $PSScriptRoot "uninstall-app.ps1") $out -Force -ErrorAction SilentlyContinue
 Copy-Item (Join-Path $PSScriptRoot "install-windivert.ps1") $out -Force -ErrorAction SilentlyContinue
 
 $ver | Set-Content (Join-Path $out "VERSION.txt")

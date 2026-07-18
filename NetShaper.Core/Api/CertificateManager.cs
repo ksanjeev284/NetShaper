@@ -7,20 +7,49 @@ namespace NetShaper.Core.Api;
 
 /// <summary>
 /// Self-hosted PKI for NetShaper remote API (mTLS).
-/// Stores certs under %ProgramData%\NetShaper\certs\.
+/// Prefers %ProgramData%\NetShaper\certs\; falls back to LocalAppData when not writable.
 /// PFX password: env NETSHAPER_PFX_PASSWORD → pki-password.txt → auto-generated secret.
 /// </summary>
 public static class CertificateManager
 {
-    public static string CertsDir => Path.Combine(
-        Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData),
-        "NetShaper", "certs");
+    private static string? _resolvedCertsDir;
+
+    public static string CertsDir => _resolvedCertsDir ??= ResolveWritableCertsDir();
 
     public static string CaPfxPath => Path.Combine(CertsDir, "netshaper-ca.pfx");
     public static string ServerPfxPath => Path.Combine(CertsDir, "netshaper-server.pfx");
     public static string ClientsDir => Path.Combine(CertsDir, "clients");
     public static string ManifestPath => Path.Combine(CertsDir, "clients.json");
     public static string PasswordFilePath => Path.Combine(CertsDir, "pki-password.txt");
+
+    private static string ResolveWritableCertsDir()
+    {
+        var candidates = new[]
+        {
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "NetShaper", "certs"),
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "NetShaper", "certs"),
+        };
+        // Prefer a path that already has a CA (upgrade / prior install)
+        foreach (var d in candidates)
+        {
+            if (File.Exists(Path.Combine(d, "netshaper-ca.pfx")))
+                return d;
+        }
+        foreach (var d in candidates)
+        {
+            try
+            {
+                Directory.CreateDirectory(d);
+                Directory.CreateDirectory(Path.Combine(d, "clients"));
+                var probe = Path.Combine(d, ".write-probe");
+                File.WriteAllText(probe, "ok");
+                File.Delete(probe);
+                return d;
+            }
+            catch { /* try next */ }
+        }
+        return candidates[0];
+    }
 
     /// <summary>Legacy default used only to open old installs that never rotated.</summary>
     public const string LegacyDevPassword = "NetShaper-Dev-ChangeMe";

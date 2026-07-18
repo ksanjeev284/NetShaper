@@ -1,19 +1,22 @@
 # Packaging
 
-Ways to ship NetShaper to end users.
+Ways to ship NetShaper to end users. Version always comes from `Directory.Build.props`
+via `scripts\Get-Version.ps1`.
 
-## 1. Portable ZIP (default)
+## 1. Portable ZIP (default / recommended)
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts\publish.ps1
-# → dist\NetShaper-0.2.0-win-x64.zip
-# → dist\NetShaper-win-x64\
+# → dist\NetShaper-<version>-win-x64.zip
+# → dist\NetShaper-win-x64\   (includes Setup.cmd, Install.ps1, GETTING-STARTED.txt)
 ```
 
-Install from the zip folder (admin):
+End users: unzip → right-click **Setup.cmd** → Run as administrator → **[1] Install app**.
+
+Dev install from published folder (admin):
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File scripts\install-app.ps1
+powershell -ExecutionPolicy Bypass -File scripts\install-app.ps1 -SkipPublish
 ```
 
 ## 2. Inno Setup installer
@@ -22,41 +25,29 @@ Requires [Inno Setup 6](https://jrsoftware.org/isinfo.php).
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File scripts\build-installer.ps1
+# → dist\NetShaper-Setup-<version>.exe
 ```
 
-Script: `scripts\NetShaper.iss`.
+Script: `scripts\NetShaper.iss` (version passed as `/DMyAppVersion=`).
 
 ## 3. MSIX (sideload)
 
 Requires **Windows SDK** (`makeappx.exe`, optionally `signtool.exe`).
 
 ```powershell
-# Stage + pack; -SelfSign creates a temp CN=NetShaper cert for local test
+# Stage + pack; -SelfSign uses ensure-codesign-cert.ps1 for local test
 powershell -ExecutionPolicy Bypass -File scripts\build-msix.ps1 -SelfSign
-
-Add-AppxPackage -Path dist\NetShaper-0.2.0-x64.msix
+# → dist\NetShaper-<version>-x64.msix
 ```
 
-| Item | Path |
-|------|------|
-| Manifest | `packaging\msix\AppxManifest.xml` |
-| Build script | `scripts\build-msix.ps1` |
-| Identity | `NetShaper.TrafficControl` / `CN=NetShaper` / `0.2.0.0` |
-| Capability | `runFullTrust` (desktop bridge style) |
+## 4. Full test + GitHub release
 
-If `makeappx` is missing, the script still stages `dist\msix-stage\` so you can pack later.
+```powershell
+powershell -ExecutionPolicy Bypass -File scripts\release.ps1
+```
 
-**Notes**
+Runs scrub, build, CLI smoke, feature smoke, publish, zip checks, git push, `gh release`.
 
-- MSIX is **full-trust**; WFP / driver still need elevation / separate kernel install.
-- Dev signing uses persistent `CN=NetShaper` cert (`scripts\ensure-codesign-cert.ps1`).
-- Production: set `NETSHAPER_SIGN_THUMBPRINT` / `NETSHAPER_SIGN_PFX` and match `AppxManifest` Publisher.
-- Kernel driver (`.sys`) is **not** bundled in MSIX — see `driver\README.md`.
+## Certificates / signing
 
-## 4. Kernel callout driver
-
-See `driver\README.md`. Not included in portable/MSIX packages by default.
-
-## 5. Certificates (mTLS + code signing)
-
-See **[CERTIFICATES.md](CERTIFICATES.md)** for mTLS PKI, password rotation, dev code-sign, and production EV/attestation.
+See `CERTIFICATES.md` in this folder.

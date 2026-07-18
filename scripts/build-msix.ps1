@@ -17,7 +17,10 @@ param(
 
 $ErrorActionPreference = "Stop"
 $Root = Resolve-Path (Join-Path $PSScriptRoot "..")
-$ver = "0.3.3"
+$ver = & (Join-Path $PSScriptRoot "Get-Version.ps1")
+if (-not $ver) { $ver = "0.0.0" }
+# MSIX Identity.Version needs 4 parts
+$ver4 = if ($ver -match '^\d+\.\d+\.\d+\.\d+$') { $ver } else { "$ver.0" }
 $pub = Join-Path $Root "dist\NetShaper-win-x64"
 $stage = Join-Path $Root "dist\msix-stage"
 $outMsix = Join-Path $Root "dist\NetShaper-$ver-x64.msix"
@@ -35,7 +38,12 @@ New-Item -ItemType Directory -Path $stage -Force | Out-Null
 New-Item -ItemType Directory -Path (Join-Path $stage "Assets") -Force | Out-Null
 
 Copy-Item (Join-Path $pub "*") $stage -Recurse -Force
-Copy-Item (Join-Path $Root "packaging\msix\AppxManifest.xml") $stage -Force
+$manifestSrc = Join-Path $Root "packaging\msix\AppxManifest.xml"
+$manifestDst = Join-Path $stage "AppxManifest.xml"
+$manifestText = Get-Content $manifestSrc -Raw
+$manifestText = [regex]::Replace($manifestText, 'Version="[\d.]+"', "Version=`"$ver4`"")
+Set-Content -Path $manifestDst -Value $manifestText -Encoding UTF8
+Write-Host "MSIX Identity.Version = $ver4"
 
 $png = Join-Path $Root "assets\NetShaper-256.png"
 if (-not (Test-Path $png)) { throw "assets\NetShaper-256.png missing" }

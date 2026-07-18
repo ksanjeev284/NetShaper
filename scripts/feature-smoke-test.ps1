@@ -161,7 +161,7 @@ foreach ($k in $guiBits.Keys) {
 }
 
 # ── Policy / rules ───────────────────────────────────────────
-Test-CliOk -Area "Policy" -Feature "list" -CliArgs @("list") -Check { param($r) $r.Out -match "Filters|Rules|Policy" }
+Test-CliOk -Area "Policy" -Feature "list" -CliArgs @("list") -Check { param($r) $r.Out -match "Filters|Rules|Policy|Profile" }
 Test-CliOk -Area "Policy" -Feature "policy show" -CliArgs @("policy","show") -Check { param($r) $r.Out -match "version|filters|rules" }
 Test-CliOk -Area "Policy" -Feature "limits list" -CliArgs @("limits")
 Test-CliOk -Area "Policy" -Feature "quotas list" -CliArgs @("quotas")
@@ -171,9 +171,45 @@ $frag = "ns-smoke-" + [guid]::NewGuid().ToString("N").Substring(0, 8)
 Test-CliOk -Area "Policy" -Feature "block rule create" -CliArgs @("block", $frag)
 Test-CliOk -Area "Policy" -Feature "allow rule create" -CliArgs @("allow", ($frag + "-allow"))
 Test-CliOk -Area "Policy" -Feature "limit rule create" -CliArgs @("limit", $frag, "1000")
+Test-CliOk -Area "Policy" -Feature "priority create" -CliArgs @("priority", $frag, "high")
+Test-CliOk -Area "Policy" -Feature "quota create" -CliArgs @("quota", $frag, "100")
+Test-CliOk -Area "Policy" -Feature "lockdown on" -CliArgs @("lockdown", "on")
+Test-CliOk -Area "Policy" -Feature "lockdown off" -CliArgs @("lockdown", "off")
 Test-CliOk -Area "Policy" -Feature "disable matching" -CliArgs @("disable", $frag)
 Test-CliOk -Area "Policy" -Feature "enable matching" -CliArgs @("enable", $frag)
 Test-CliOk -Area "Policy" -Feature "unblock matching" -CliArgs @("unblock", $frag)
+
+# Profile sync: CLI writes active profile + policy.json mirror
+Test-CliOk -Area "Profile" -Feature "list" -CliArgs @("profile", "list") -Check { param($r) $r.Out -match "Active|default" }
+Test-CliOk -Area "Profile" -Feature "show" -CliArgs @("profile", "show")
+$profCreate = "ns-prof-" + [guid]::NewGuid().ToString("N").Substring(0, 6)
+Test-CliOk -Area "Profile" -Feature "create" -CliArgs @("profile", "create", $profCreate)
+Test-CliOk -Area "Profile" -Feature "use" -CliArgs @("profile", "use", $profCreate)
+Test-CliOk -Area "Profile" -Feature "use default" -CliArgs @("profile", "use", "default")
+Test-CliOk -Area "Profile" -Feature "delete temp" -CliArgs @("profile", "delete", $profCreate)
+# After limit, policy.json should mention the fragment
+$rSync = Invoke-Cli -CliArgs @("limit", "ns-sync-check", "123")
+$legacy = Join-Path $env:ProgramData "NetShaper\policy.json"
+if ((Test-Path $legacy) -and ((Get-Content $legacy -Raw) -match "ns-sync-check")) {
+  Add-Result "Profile" "CLI→policy.json mirror" "PASS" "limit mirrored"
+} else {
+  Add-Result "Profile" "CLI→policy.json mirror" "FAIL" "policy.json missing ns-sync-check"
+}
+# Active profile file should also contain it
+$idxPath = Join-Path $env:ProgramData "NetShaper\profiles-index.json"
+$activeName = "default"
+if (Test-Path $idxPath) {
+  try {
+    $idx = Get-Content $idxPath -Raw | ConvertFrom-Json
+    if ($idx.ActiveProfile) { $activeName = $idx.ActiveProfile }
+  } catch {}
+}
+$profFile = Join-Path $env:ProgramData "NetShaper\profiles\$activeName.json"
+if ((Test-Path $profFile) -and ((Get-Content $profFile -Raw) -match "ns-sync-check")) {
+  Add-Result "Profile" "CLI→active profile file" "PASS" $activeName
+} else {
+  Add-Result "Profile" "CLI→active profile file" "FAIL" "profile $activeName missing ns-sync-check"
+}
 
 # Export / import round-trip
 $tmp = Join-Path $env:TEMP "netshaper-smoke-policy.json"
@@ -292,6 +328,10 @@ $checks = @{
   "MSIX script" = "scripts\build-msix.ps1"
   "Certs script" = "scripts\generate-certs.ps1"
   "Sign script" = "scripts\sign-file.ps1"
+  "Release pipeline" = "scripts\release.ps1"
+  "Easy Setup.cmd" = "scripts\Setup.cmd"
+  "Install-FromRelease" = "scripts\Install-FromRelease.ps1"
+  "GETTING-STARTED" = "scripts\GETTING-STARTED.txt"
 }
 foreach ($k in $checks.Keys) {
   $p = Join-Path $Root $checks[$k]

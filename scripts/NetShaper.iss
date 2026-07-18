@@ -2,9 +2,11 @@
 ; Build: scripts\build-installer.ps1 (requires Inno Setup 6)
 
 #define MyAppName "NetShaper"
-#define MyAppVersion "0.3.3"
+#ifndef MyAppVersion
+  #define MyAppVersion "0.4.1"
+#endif
 #define MyAppPublisher "NetShaper contributors"
-#define MyAppURL "https://github.com/"
+#define MyAppURL "https://github.com/ksanjeev284/NetShaper"
 #define MyAppExeName "NetShaper.exe"
 #define PublishDir "..\dist\NetShaper-win-x64"
 

@@ -123,23 +123,46 @@ Set-ItemProperty $unreg -Name "DisplayVersion" -Value $ver
 Set-ItemProperty $unreg -Name "Publisher" -Value "NetShaper contributors"
 Set-ItemProperty $unreg -Name "InstallLocation" -Value $InstallDir
 Set-ItemProperty $unreg -Name "DisplayIcon" -Value $exe
+
+# Full uninstall script: stop service, PATH, shortcuts, registry, files
 $uninst = Join-Path $InstallDir "Uninstall.ps1"
-# Write a tiny uninstall next to the app
-@"
+$fullUninstSrc = @(
+  (Join-Path $SourceDir "uninstall-app.ps1"),
+  (Join-Path $PSScriptRoot "uninstall-app.ps1")
+) | Where-Object { $_ -and (Test-Path $_) } | Select-Object -First 1
+if ($fullUninstSrc) {
+  $body = Get-Content $fullUninstSrc -Raw
+  # Pin install dir for this install
+  $body = $body -replace '\$InstallDir = "\$env:ProgramFiles\\NetShaper"', "`$InstallDir = `"$InstallDir`""
+  Set-Content $uninst -Value $body -Encoding UTF8
+} else {
+  @"
 #Requires -RunAsAdministrator
-`$dir = '$InstallDir'
+param([string]`$InstallDir = '$InstallDir', [switch]`$RemoveData)
+`$ErrorActionPreference = 'Continue'
+try { Stop-Service NetShaper -Force -ErrorAction SilentlyContinue; sc.exe delete NetShaper | Out-Null } catch {}
 Remove-Item (Join-Path `$env:ProgramData 'Microsoft\Windows\Start Menu\Programs\NetShaper') -Recurse -Force -ErrorAction SilentlyContinue
 Remove-Item (Join-Path ([Environment]::GetFolderPath('CommonDesktopDirectory')) 'NetShaper.lnk') -Force -ErrorAction SilentlyContinue
+`$cliDir = Join-Path `$InstallDir 'cli'
+`$mp = [Environment]::GetEnvironmentVariable('Path','Machine')
+if (`$mp -and `$mp.Contains(`$cliDir)) {
+  `$parts = `$mp.Split(';') | Where-Object { `$_ -and (`$_ -ne `$cliDir) }
+  [Environment]::SetEnvironmentVariable('Path', (`$parts -join ';'), 'Machine')
+}
 Remove-Item 'HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall\NetShaper' -Recurse -Force -ErrorAction SilentlyContinue
-if (Test-Path `$dir) { Remove-Item `$dir -Recurse -Force -ErrorAction SilentlyContinue }
+if (Test-Path `$InstallDir) { Remove-Item `$InstallDir -Recurse -Force -ErrorAction SilentlyContinue }
+if (`$RemoveData -and (Test-Path (Join-Path `$env:ProgramData 'NetShaper'))) {
+  Remove-Item (Join-Path `$env:ProgramData 'NetShaper') -Recurse -Force -ErrorAction SilentlyContinue
+}
 Write-Host 'NetShaper uninstalled.'
 "@ | Set-Content $uninst -Encoding UTF8
+}
 Set-ItemProperty $unreg -Name "UninstallString" -Value ("powershell.exe -ExecutionPolicy Bypass -File `"{0}`"" -f $uninst)
 Set-ItemProperty $unreg -Name "NoModify" -Value 1 -Type DWord
 Set-ItemProperty $unreg -Name "NoRepair" -Value 1 -Type DWord
 
 # Copy installer helpers into install dir for re-runs
-foreach ($n in @("Install.ps1", "Setup.cmd", "GETTING-STARTED.txt")) {
+foreach ($n in @("Install.ps1", "Setup.cmd", "GETTING-STARTED.txt", "uninstall-app.ps1", "install-windivert.ps1")) {
   $p = Join-Path $SourceDir $n
   if (Test-Path $p) { Copy-Item $p $InstallDir -Force }
 }
